@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -19,17 +18,6 @@ type Response struct {
 	StatusCode    int    `json:"status_code"`
 }
 
-func main() {
-	router := mux.NewRouter()
-
-	// Define the API endpoint
-	router.HandleFunc("/api", endpointHandler).Methods("GET")
-
-	// Start the server
-	http.Handle("/", router)
-	http.ListenAndServe(":8080", nil)
-}
-
 func endpointHandler(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	slackName := params.Get("slack_name")
@@ -44,14 +32,20 @@ func endpointHandler(w http.ResponseWriter, r *http.Request) {
 		CurrentDay:    currentDay,
 		UTCTime:       currentTime.Format("2006-01-02T15:04:05Z"),
 		Track:         track,
-		GitHubFileURL: "https://github.com/username/repo/blob/main/file_name.ext",
-		GitHubRepoURL: "https://github.com/username/repo",
+		GitHubFileURL: "https://github.com/joshua468/temi-projects/edit/main/slack-project",
+		GitHubRepoURL: "https://github.com/joshua468/temi-projects/slack-project",
 		StatusCode:    200,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-
-	// Encode and send the response as JSON
 	json.NewEncoder(w).Encode(response)
+}
+
+func main() {
+	router := mux.NewRouter()
+
+	router.HandleFunc("/api", endpointHandler).Methods("GET")
+	http.Handle("/", router)
+	http.ListenAndServe(":8080", nil)
 }
