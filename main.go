@@ -1,59 +1,57 @@
+
 package main
 
 import (
-	"bufio"
-	"fmt"
-	"log"
-	"net"
-	"os"
-	"strings"
+	"encoding/json"
+	"net/http"
+	"time"
+
+	"github.com/gorilla/mux"
 )
 
-func main() {
-	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Printf("domain,hasMX,hasSPF,sprRecord,hasDMARC,dmarcRecord\n")
-
-	for scanner.Scan() {
-		checkDomain(scanner.Text())
-
-	}
-	if err := scanner.Err(); err != nil {
-		log.Fatal("Error:could not read from input:%v\n", err)
-	}
+type Response struct {
+	SlackName     string `json:"slack_name"`
+	CurrentDay    string `json:"current_day"`
+	UTCTime       string `json:"utc_time"`
+	Track         string `json:"track"`
+	GitHubFileURL string `json:"github_file_url"`
+	GitHubRepoURL string `json:"github_repo_url"`
+	StatusCode    int    `json:"status_code"`
 }
-func checkDomain(domain string) {
-	var hasMX, hasSPF, hasDMARC bool
-	var spfRecord, dmarcRecord string
 
-	mxRecords, err := net.LookupMX(domain)
-	if err != nil {
-		log.Printf("Error: %v\n", err)
-	}
-	if len(mxRecords) > 0 {
-		hasMX = true
+func main() {
+	router := mux.NewRouter()
+
+	// Define the API endpoint
+	router.HandleFunc("/api", endpointHandler).Methods("GET")
+
+	// Start the server
+	http.Handle("/", router)
+	http.ListenAndServe(":8080", nil)
+}
+
+func endpointHandler(w http.ResponseWriter, r *http.Request) {
+	params := r.URL.Query()
+	slackName := params.Get("slack_name")
+	track := params.Get("track")
+
+	currentDay := time.Now().Weekday().String()
+	currentTime := time.Now().UTC()
+	currentTime = currentTime.Add(time.Minute * -2)
+
+	response := Response{
+		SlackName:     slackName,
+		CurrentDay:    currentDay,
+		UTCTime:       currentTime.Format("2006-01-02T15:04:05Z"),
+		Track:         track,
+		GitHubFileURL: "https://github.com/username/repo/blob/main/file_name.ext",
+		GitHubRepoURL: "https://github.com/username/repo",
+		StatusCode:    200,
 	}
 
-	txtRecords, err := net.LookupTXT(domain)
-	if err != nil {
-		log.Printf("Error:%v\n", err)
-	}
-	for _, record := range txtRecords {
-		if strings.HasPrefix(record, "v=spf1") {
-			hasSPF = true
-			spfRecord = record
-			break
-		}
-	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 
-	dmarcRecords, err := net.LookupTXT("_dmarc." + domain)
-	if err != nil {
-		log.Printf("Error: %v\n", err)
-	}
-	for _, record := range dmarcRecords {
-		if strings.HasPrefix(record, "v=DMARC1") {
-			hasDMARC = true
-			dmarcRecord = record
-		}
-	}
-	fmt.Printf("%v,%v,%v,%v,%v,%v", domain, hasMX, hasSPF, spfRecord, hasDMARC, dmarcRecord)
+	// Encode and send the response as JSON
+	json.NewEncoder(w).Encode(response)
 }
